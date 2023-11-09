@@ -46,7 +46,7 @@ impl Scanner {
             ("for", TokenType::For),
             ("fun", TokenType::Fun),
             ("if", TokenType::If),
-            ("nil", TokenType::Nil),
+            ("nil", TokenType::None),
             ("or", TokenType::Or),
             ("print", TokenType::Print),
             ("return", TokenType::Return),

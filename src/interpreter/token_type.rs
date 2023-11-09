@@ -2,10 +2,11 @@
 pub enum Literal {
     Number(f64),
     String(String),
+    Bool(bool),
     None,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
@@ -43,7 +44,7 @@ pub enum TokenType {
     Fun,
     For,
     If,
-    Nil,
+    None,
     Or,
     Print,
     Return,
