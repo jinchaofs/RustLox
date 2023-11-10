@@ -1,12 +1,10 @@
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
-    ptr::null,
 };
 
-use clap::error;
-
 use super::{
+    error::LoxError,
     token::Token,
     token_type::{Literal, TokenType},
 };
@@ -64,10 +62,10 @@ impl Scanner {
         keywords
     }
 
-    pub fn scan(&self) -> Vec<Token> {
+    pub fn scan(&self) -> Result<Vec<Token>, LoxError> {
         while !self.is_source_end() {
             self.start.set(self.current.get());
-            self.scan_token();
+            self.scan_token()?;
         }
 
         self.tokens.borrow_mut().push(Token::new(
@@ -77,10 +75,10 @@ impl Scanner {
             self.line.get(),
         ));
 
-        self.tokens.borrow().to_vec()
+        Ok(self.tokens.borrow().to_vec())
     }
 
-    fn scan_token(&self) {
+    fn scan_token(&self) -> Result<(), LoxError> {
         let c = self.advance();
         match c {
             '(' => self.put_token(TokenType::LeftParen),
@@ -118,28 +116,34 @@ impl Scanner {
                     while !self.is_line_end() && !self.is_source_end() {
                         self.advance();
                     }
+                    Ok(())
                 } else if self.next_match('*') {
                     // multi line comments
+                    Ok(())
                 } else {
-                    self.put_token(TokenType::Slash);
+                    self.put_token(TokenType::Slash)
                 }
             }
-            ' ' | '\r' | '\t' => (),
+            ' ' | '\r' | '\t' => Ok(()),
             '\n' => self.line_advance(),
             '"' => self.string(),
             _ => {
                 if self.is_digit(c) {
-                    self.number();
+                    self.number()
                 } else if self.is_alpha(c) {
-                    self.identifier();
+                    self.identifier()
                 } else {
-                    error!("Unexpected character.");
+                    Err(LoxError::new(
+                        self.line.get(),
+                        None,
+                        "Unexpected character.",
+                    ))
                 }
             }
         }
     }
 
-    fn identifier(&self) {
+    fn identifier(&self) -> Result<(), LoxError> {
         while self.is_alpha_numeric(self.peek()) {
             self.advance();
         }
@@ -147,14 +151,14 @@ impl Scanner {
         let text = &self.source[self.start.get()..self.current.get()];
         let ttype = self.keywords.borrow().get(text).cloned();
         if let Some(ttype) = ttype {
-            self.put_token(ttype);
-            return;
+            self.put_token(ttype)?;
+            return Ok(());
         }
 
-        self.put_token(TokenType::Identifier);
+        self.put_token(TokenType::Identifier)
     }
 
-    fn number(&self) {
+    fn number(&self) -> Result<(), LoxError> {
         while self.is_digit(self.peek()) {
             self.advance();
         }
@@ -170,41 +174,42 @@ impl Scanner {
 
         self.put_token_with_literal(TokenType::Number, Literal::Number(value))
     }
-    fn string(&self) {
-        self.advance_with_condition(|| self.peek() != '"');
+    fn string(&self) -> Result<(), LoxError> {
+        self.advance_with_condition(|| self.peek() != '"')?;
 
         if self.is_source_end() {
-            error!("Unterminated string.");
-            return;
+            return Err(LoxError::new(self.line.get(), None, "Unterminated string."));
         }
 
         self.advance();
 
         let text = &self.source[(self.start.get() + 1)..(self.current.get() - 1)];
-        self.put_token_with_literal(TokenType::String, Literal::String(text.into()));
+        self.put_token_with_literal(TokenType::String, Literal::String(text.into()))
     }
 
-    fn put_token(&self, ttype: TokenType) {
-        self.put_token_with_literal(ttype, Literal::None);
+    fn put_token(&self, ttype: TokenType) -> Result<(), LoxError> {
+        self.put_token_with_literal(ttype, Literal::None)
     }
 
-    fn put_token_with_literal(&self, ttype: TokenType, literal: Literal) {
+    fn put_token_with_literal(&self, ttype: TokenType, literal: Literal) -> Result<(), LoxError> {
         let text = &self.source[self.start.get()..self.current.get()];
         self.tokens
             .borrow_mut()
             .push(Token::new(ttype, text.into(), literal, self.line.get()));
+        Ok(())
     }
 
-    fn advance_with_condition<F>(&self, condition: F)
+    fn advance_with_condition<F>(&self, condition: F) -> Result<(), LoxError>
     where
         F: Fn() -> bool,
     {
         while condition() && !self.is_source_end() {
             if self.is_line_end() {
-                self.line_advance();
+                self.line_advance()?;
             }
             self.advance();
         }
+        Ok(())
     }
 
     fn advance(&self) -> char {
@@ -213,8 +218,9 @@ impl Scanner {
         c
     }
 
-    fn line_advance(&self) {
+    fn line_advance(&self) -> Result<(), LoxError> {
         self.line.set(self.line.get() + 1);
+        Ok(())
     }
 
     fn peek(&self) -> char {

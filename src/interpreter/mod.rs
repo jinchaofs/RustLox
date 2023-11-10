@@ -1,4 +1,5 @@
 // mod environment;
+mod error;
 mod expression;
 mod parser;
 mod scanner;
@@ -9,6 +10,8 @@ use expression::{Expr, ExprVisitor};
 use parser::Parser;
 use scanner::Scanner;
 use token_type::TokenType;
+
+use self::error::LoxError;
 
 // use self::{environment::Environment, token::Token, token_type::Literal};
 
@@ -22,12 +25,13 @@ impl Interpreter {
             // environment: Environment::new(None),
         }
     }
-    pub fn run(&self, source: String) {
+    pub fn run(&self, source: String) -> Result<(), LoxError> {
         let scanner = Scanner::new(source);
-        let tokens = scanner.scan();
+        let tokens = scanner.scan()?;
         let parser = Parser::new(tokens);
-        let expr_tree = parser.parse();
+        let expr_tree = parser.parse()?;
         println!("expr_tree: {:#?}", expr_tree);
+        Ok(())
     }
 }
 

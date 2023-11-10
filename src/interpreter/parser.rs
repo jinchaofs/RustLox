@@ -1,6 +1,7 @@
 use std::cell::{Cell, RefCell};
 
 use super::{
+    error::LoxError,
     expression::Expr,
     token::Token,
     token_type::{Literal, TokenType},
@@ -20,28 +21,28 @@ impl Parser {
         }
     }
 
-    pub fn parse(&self) -> Expr {
+    pub fn parse(&self) -> Result<Expr, LoxError> {
         self.expression()
     }
 
-    pub fn expression(&self) -> Expr {
+    pub fn expression(&self) -> Result<Expr, LoxError> {
         self.equality()
     }
 
-    pub fn equality(&self) -> Expr {
-        let mut expr = self.comparison();
+    pub fn equality(&self) -> Result<Expr, LoxError> {
+        let mut expr = self.comparison()?;
 
         while self.match_types(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
             let operator = self.previous();
-            let right = self.comparison();
+            let right = self.comparison()?;
 
-            expr = Expr::Binary(Box::new(expr), operator.clone(), Box::new(right))
+            expr = Expr::Binary(Box::new(expr), operator.clone(), Box::new(right));
         }
-        expr
+        Ok(expr)
     }
 
-    fn comparison(&self) -> Expr {
-        let mut expr = self.term();
+    fn comparison(&self) -> Result<Expr, LoxError> {
+        let mut expr = self.term()?;
 
         while self.match_types(vec![
             TokenType::Greater,
@@ -50,67 +51,71 @@ impl Parser {
             TokenType::LessEqual,
         ]) {
             let operator = self.previous();
-            let right = self.term();
+            let right = self.term()?;
             expr = Expr::Binary(Box::new(expr), operator, Box::new(right));
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn term(&self) -> Expr {
-        let mut expr = self.factor();
+    fn term(&self) -> Result<Expr, LoxError> {
+        let mut expr = self.factor()?;
 
         while self.match_types(vec![TokenType::Minus, TokenType::Plus]) {
             let operator = self.previous();
-            let right = self.factor();
+            let right = self.factor()?;
             expr = Expr::Binary(Box::new(expr), operator.clone(), Box::new(right))
         }
-        expr
+        Ok(expr)
     }
 
-    fn factor(&self) -> Expr {
-        let mut expr = self.unary();
+    fn factor(&self) -> Result<Expr, LoxError> {
+        let mut expr = self.unary()?;
 
         while self.match_types(vec![TokenType::Slash, TokenType::Star]) {
             let operator = self.previous();
-            let right = self.unary();
+            let right = self.unary()?;
             expr = Expr::Binary(Box::new(expr), operator, Box::new(right));
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn unary(&self) -> Expr {
+    fn unary(&self) -> Result<Expr, LoxError> {
         if self.match_types(vec![TokenType::Bang, TokenType::Minus]) {
             let operator = self.previous();
-            let right = self.unary();
-            return Expr::Unary(operator, Box::new(right));
+            let right = self.unary()?;
+            return Ok(Expr::Unary(operator, Box::new(right)));
         }
         self.primary()
     }
 
-    fn primary(&self) -> Expr {
+    fn primary(&self) -> Result<Expr, LoxError> {
         if self.match_type(TokenType::False) {
-            return Expr::Literal(Literal::Bool(false));
+            return Ok(Expr::Literal(Literal::Bool(false)));
         }
         if self.match_type(TokenType::True) {
-            return Expr::Literal(Literal::Bool(true));
+            return Ok(Expr::Literal(Literal::Bool(true)));
         }
         if self.match_type(TokenType::None) {
-            return Expr::Literal(Literal::None);
+            return Ok(Expr::Literal(Literal::None));
         }
 
         if self.match_types(vec![TokenType::Number, TokenType::String]) {
-            return Expr::Literal(self.previous().literal);
+            return Ok(Expr::Literal(self.previous().literal));
         }
 
         if self.match_type(TokenType::LeftParen) {
-            let expr = self.expression();
+            let expr = self.expression()?;
             self.consume(TokenType::RightParen, "Expect ')' after expression.");
-            return Expr::Grouping(Box::new(expr));
+            return Ok(Expr::Grouping(Box::new(expr)));
         }
-
-        panic!("Expect expression.");
+        Err(LoxError::new(
+            self.previous().line,
+            Some(self.previous().lexeme),
+            "Expect expression.",
+        ))
+        // panic!("Expect expression.");
     }
 
     fn consume(&self, ttype: TokenType, message: &str) -> Token {

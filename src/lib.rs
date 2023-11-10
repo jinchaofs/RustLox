@@ -18,7 +18,10 @@ impl RustLox {
     }
     pub fn run_with_prompt(&self, prompt: String) {
         info!("Run with prompt: {prompt}");
-        self.interpreter.run(prompt);
+        let result = self.interpreter.run(prompt);
+        if let Err(res) = result {
+            println!("{}", res);
+        }
     }
 
     pub fn run_with_file(&self, file_path: &Path) {
