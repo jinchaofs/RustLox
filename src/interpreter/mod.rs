@@ -1,4 +1,5 @@
 // mod environment;
+mod ast_printer;
 mod error;
 mod expression;
 mod parser;
@@ -9,9 +10,11 @@ mod token_type;
 use expression::{Expr, ExprVisitor};
 use parser::Parser;
 use scanner::Scanner;
-use token_type::TokenType;
+use token::Token;
 
-use self::error::LoxError;
+use crate::interpreter::ast_printer::AstPrinter;
+
+use self::{error::LoxError, token_type::Literal};
 
 // use self::{environment::Environment, token::Token, token_type::Literal};
 
@@ -28,10 +31,33 @@ impl Interpreter {
     pub fn run(&self, source: String) -> Result<(), LoxError> {
         let scanner = Scanner::new(source);
         let tokens = scanner.scan()?;
+
         let parser = Parser::new(tokens);
-        let expr_tree = parser.parse()?;
-        println!("expr_tree: {:#?}", expr_tree);
+        let expr = parser.parse()?;
+
+        let printer = AstPrinter {};
+        printer.print(&expr);
+
         Ok(())
+    }
+}
+
+impl ExprVisitor for Interpreter {
+    type Res = Literal;
+    fn visit_binary(&self, left: &Box<Expr>, operator: &Token, right: &Box<Expr>) -> Self::Res {
+        Literal::None
+    }
+
+    fn visit_grouping(&self, expr: &Box<Expr>) -> Self::Res {
+        Literal::None
+    }
+
+    fn visit_literal(&self, literal: &Literal) -> Self::Res {
+        Literal::None
+    }
+
+    fn visit_unary(&self, operator: &Token, expr: &Box<Expr>) -> Self::Res {
+        Literal::None
     }
 }
 

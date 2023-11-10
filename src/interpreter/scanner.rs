@@ -23,7 +23,6 @@ pub struct Scanner {
 
 impl Scanner {
     pub fn new(source: String) -> Self {
-        info!("Scanning source: {}", source);
         Scanner {
             source: source.clone(),
             source_chars: source.chars().collect(),
@@ -63,7 +62,7 @@ impl Scanner {
     }
 
     pub fn scan(&self) -> Result<Vec<Token>, LoxError> {
-        while !self.is_source_end() {
+        while !self.end_of_source() {
             self.start.set(self.current.get());
             self.scan_token()?;
         }
@@ -113,7 +112,7 @@ impl Scanner {
             }),
             '/' => {
                 if self.next_match('/') {
-                    while !self.is_line_end() && !self.is_source_end() {
+                    while !self.end_of_line() && !self.end_of_source() {
                         self.advance();
                     }
                     Ok(())
@@ -162,22 +161,32 @@ impl Scanner {
         while self.is_digit(self.peek()) {
             self.advance();
         }
-        if self.peek() == '.' && self.is_digit(self.peek_next()) {
+        let text = &self.source[self.start.get()..self.current.get()];
+
+        let value = if self.peek() == '.' && self.is_digit(self.peek_next()) {
             self.advance();
             while self.is_digit(self.peek()) {
                 self.advance();
             }
-        }
-        let value = self.source[self.start.get()..self.current.get()]
-            .parse::<f64>()
-            .expect("Failed to parse the value.");
+            text.parse::<f64>()
+                .map(Literal::Float)
+                .map_err(|e| format!("Failed to parse the value({}) to float. {}", text, e))
+        } else {
+            text.parse::<isize>()
+                .map(Literal::Integer)
+                .map_err(|e| format!("Failed to parse the value({}) to integer. {}", text, e))
+        };
 
-        self.put_token_with_literal(TokenType::Number, Literal::Number(value))
+        match value {
+            Ok(val) => self.put_token_with_literal(TokenType::Number, val),
+            Err(e) => Err(LoxError::new(self.line.get(), None, &e)),
+        }
     }
+
     fn string(&self) -> Result<(), LoxError> {
         self.advance_with_condition(|| self.peek() != '"')?;
 
-        if self.is_source_end() {
+        if self.end_of_source() {
             return Err(LoxError::new(self.line.get(), None, "Unterminated string."));
         }
 
@@ -203,8 +212,8 @@ impl Scanner {
     where
         F: Fn() -> bool,
     {
-        while condition() && !self.is_source_end() {
-            if self.is_line_end() {
+        while condition() && !self.end_of_source() {
+            if self.end_of_line() {
                 self.line_advance()?;
             }
             self.advance();
@@ -224,7 +233,7 @@ impl Scanner {
     }
 
     fn peek(&self) -> char {
-        if self.is_source_end() {
+        if self.end_of_source() {
             return '\0';
         }
         self.source_chars[self.current.get()]
@@ -239,7 +248,7 @@ impl Scanner {
     }
 
     fn next_match(&self, expected: char) -> bool {
-        if self.is_source_end() {
+        if self.end_of_source() {
             return false;
         }
         if self.source_chars[self.current.get()] != expected {
@@ -261,11 +270,11 @@ impl Scanner {
         c >= '0' && c <= '9'
     }
 
-    fn is_line_end(&self) -> bool {
+    fn end_of_line(&self) -> bool {
         self.peek() == '\n'
     }
 
-    fn is_source_end(&self) -> bool {
+    fn end_of_source(&self) -> bool {
         self.current.get() >= self.source.len()
     }
 }

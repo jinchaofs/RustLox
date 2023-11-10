@@ -107,22 +107,25 @@ impl Parser {
 
         if self.match_type(TokenType::LeftParen) {
             let expr = self.expression()?;
-            self.consume(TokenType::RightParen, "Expect ')' after expression.");
+            self.consume(TokenType::RightParen, "Expect ')' after expression.")?;
             return Ok(Expr::Grouping(Box::new(expr)));
         }
         Err(LoxError::new(
-            self.previous().line,
-            Some(self.previous().lexeme),
+            self.peek().line,
+            Some(self.peek().lexeme),
             "Expect expression.",
         ))
-        // panic!("Expect expression.");
     }
 
-    fn consume(&self, ttype: TokenType, message: &str) -> Token {
+    fn consume(&self, ttype: TokenType, message: &str) -> Result<Token, LoxError> {
         if self.check(ttype) {
-            return self.advance();
+            return Ok(self.advance());
         }
-        panic!("{}", message);
+        Err(LoxError::new(
+            self.peek().line,
+            Some(self.peek().lexeme),
+            message,
+        ))
     }
     fn match_type(&self, ttype: TokenType) -> bool {
         if self.check(ttype) {
@@ -158,19 +161,11 @@ impl Parser {
     }
 
     fn peek(&self) -> Token {
-        self.tokens
-            .borrow()
-            .get(self.current.get())
-            .unwrap()
-            .clone()
+        self.tokens.borrow()[self.current.get()].clone()
     }
 
     fn previous(&self) -> Token {
-        self.tokens
-            .borrow()
-            .get(self.current.get() - 1)
-            .unwrap()
-            .clone()
+        self.tokens.borrow()[self.current.get() - 1].clone()
     }
 
     fn is_at_end(&self) -> bool {
