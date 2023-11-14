@@ -3,6 +3,7 @@ use std::cell::{Cell, RefCell};
 use super::{
     error::LoxError,
     expression::Expr,
+    statement::Statement,
     token::Token,
     token_type::{Literal, TokenType},
 };
@@ -21,8 +22,50 @@ impl Parser {
         }
     }
 
-    pub fn parse(&self) -> Result<Expr, LoxError> {
-        self.expression()
+    pub fn parse(&self) -> Result<Vec<Statement>, LoxError> {
+        let mut statements = Vec::new();
+        while !self.is_at_end() {
+            statements.push(self.declaration()?);
+        }
+        Ok(statements)
+    }
+
+    fn declaration(&self) -> Result<Statement, LoxError> {
+        if self.match_type(TokenType::Var) {
+            return self.var_declaration();
+        }
+        return self.statement();
+    }
+    fn var_declaration(&self) -> Result<Statement, LoxError> {
+        let name = self.consume(TokenType::Identifier, "Expect variable name.")?;
+        let mut initializer = None;
+        if self.match_type(TokenType::Equal) {
+            initializer = Some(self.expression()?);
+        }
+        self.consume(
+            TokenType::Semicolon,
+            "Expect ';' after variable declaration.",
+        );
+        Ok(Statement::Var(name, initializer))
+    }
+
+    fn statement(&self) -> Result<Statement, LoxError> {
+        if self.match_type(TokenType::Print) {
+            return self.print_statement();
+        }
+        self.expression_statement()
+    }
+
+    fn expression_statement(&self) -> Result<Statement, LoxError> {
+        let value = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
+        Ok(Statement::Expression(Box::new(value)))
+    }
+
+    fn print_statement(&self) -> Result<Statement, LoxError> {
+        let value = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after expression.")?;
+        Ok(Statement::Print(Box::new(value)))
     }
 
     pub fn expression(&self) -> Result<Expr, LoxError> {
@@ -103,6 +146,10 @@ impl Parser {
 
         if self.match_types(vec![TokenType::Number, TokenType::String]) {
             return Ok(Expr::Literal(self.previous().literal));
+        }
+
+        if self.match_type(TokenType::Identifier) {
+            return Ok(Expr::Variable(self.previous()));
         }
 
         if self.match_type(TokenType::LeftParen) {

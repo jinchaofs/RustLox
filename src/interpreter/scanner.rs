@@ -172,7 +172,7 @@ impl Scanner {
                 .map(Literal::Float)
                 .map_err(|e| format!("Failed to parse the value({}) to float. {}", text, e))
         } else {
-            text.parse::<isize>()
+            text.parse::<i64>()
                 .map(Literal::Integer)
                 .map_err(|e| format!("Failed to parse the value({}) to integer. {}", text, e))
         };

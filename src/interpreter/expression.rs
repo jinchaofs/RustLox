@@ -18,6 +18,7 @@ pub trait ExprVisitor {
     fn visit_literal(&self, literal: &Literal) -> Self::Res;
     // fn evaluate_assign(&self, token: &Token, expr: &Box<Expr>) -> Self::Res;
     fn visit_unary(&self, operator: &Token, expr: &Box<Expr>) -> Self::Res;
+    fn visit_variable(&self, name: &Token) -> Self::Res;
 }
 
 impl Expr {
@@ -27,6 +28,7 @@ impl Expr {
             Expr::Grouping(expr) => visitor.visit_grouping(expr),
             Expr::Literal(literal) => visitor.visit_literal(literal),
             Expr::Unary(operator, expr) => visitor.visit_unary(operator, expr),
+            Expr::Variable(name) => visitor.visit_variable(name),
             _ => unimplemented!(),
         }
     }

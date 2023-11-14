@@ -39,4 +39,7 @@ impl ExprVisitor for AstPrinter {
     fn visit_unary(&self, operator: &Token, expr: &Box<Expr>) -> Self::Res {
         self.parenthesize(operator.lexeme.clone(), vec![expr])
     }
+    fn visit_variable(&self, name: &Token) -> Self::Res {
+        self.parenthesize(name.lexeme.clone(), vec![])
+    }
 }

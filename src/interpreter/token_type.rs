@@ -1,7 +1,7 @@
 #[derive(Debug, Clone)]
 pub enum Literal {
     Float(f64),
-    Integer(isize),
+    Integer(i64),
     String(String),
     Bool(bool),
     None,
